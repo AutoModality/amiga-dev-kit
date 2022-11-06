@@ -19,7 +19,6 @@ class CanOpenObject:
     SDO_CMD = 0x600
     HEARTBEAT = 0x700
 
-
 def create_nmt_cobid():
     return CanOpenObject.NMT
 
