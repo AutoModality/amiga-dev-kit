@@ -1,4 +1,5 @@
 from canio import Message
+from usb_cdc import console
 from farm_ng.utils.cobid import CanOpenObject
 from farm_ng.utils.general import TickRepeater
 from farm_ng.utils.main_loop import MainLoop
@@ -6,8 +7,14 @@ from farm_ng.utils.packet import AmigaControlState
 from farm_ng.utils.packet import AmigaRpdo1
 from farm_ng.utils.packet import AmigaTpdo1
 from farm_ng.utils.packet import DASHBOARD_NODE_ID
-from usb_cdc import console
-
+# For local dev intellisense, replace absolute farm_ng module imports with relative imports
+#   from farm_ng.utils.cobid import CanOpenObject
+#   vvv
+#   from ...lib.farm_ng.utils.cobid import CanOpenObject
+# and adjust circuitpython lib imports similarly using libdev
+#   from usb_cdc import console
+#   vvv
+#   from ...libdev.usb_cdc import console
 
 class HelloMainLoopApp:
     def __init__(self, main_loop: MainLoop, can, node_id) -> None:
