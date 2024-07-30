@@ -42,3 +42,7 @@ In Pycharm, you can:
 * Use the menu: `VCS` -> `Checkout From Version Control` -> `Git`
 * Enter the github SSH URL and set the directory
   * Now the project will manage the github connection and venv for you
+
+
+# !!! <https://learn.adafruit.com/welcome-to-circuitpython/pycharm-and-circuitpython> !!! 
+Import the circuitpython-stupbs module for intellisense!!!

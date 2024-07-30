@@ -1,6 +1,8 @@
 import board
 import busio
 import canio
+import digitalio
+from math import fabs
 from farm_ng.utils.cobid import CanOpenObject
 from farm_ng.utils.general import Axis
 from farm_ng.utils.general import TickRepeater
@@ -15,6 +17,7 @@ from struct import pack
 from struct import unpack
 
 
+
 def parse_packet(packet):
     # https://github.com/robotmaker/Real-time-graphical-representation-of-16-channel-S-BUS-protocol/blob/master/ProcessingSketch_SBUS_16_Channel_Simulation/ProcessingSketch_SBUS_16_Channel_Simulation.pde
 
@@ -24,7 +27,7 @@ def parse_packet(packet):
     # channel_3 = (packet[5] >> 1 | packet[6] << 7) & 0x07FF
     channels = [None] * 16
 
-#    channel_sum = int.from_bytes(packet[1:23], byteorder"little")
+    # channel_sum = int.from_bytes(packet[1:23], byteorder"little")
     channel_sum = int.from_bytes(packet[1:23], "little")
 
     for ch in range(0, 16):
@@ -45,7 +48,7 @@ class RC0(Packet):
         channels,
     ):
         self.format = "<8B"
-        self.channels = [None] * 8;
+        self.channels = [None] * 8
         for ch in range(0, 8):
             self.channels[ch] = int((channels[ch] - 172) / 1639.0 * 255) & 0xff # 0 1811 172 992 1639
         self.stamp()
@@ -102,8 +105,22 @@ class FpvApp:
         self.uart = busio.UART(
             None, board.RX, baudrate=100000, bits=8, parity=0, stop=2, timeout=0.002, receiver_buffer_size=256
         )
+        # stop indicator pin
+        self.zero_velocity_pin = digitalio.DigitalInOut(board.D9)
+        self.zero_velocity_pin.direction = digitalio.Direction.OUTPUT
+        self.zero_velocity_pin.value = False
 
-        self.amiga_tpdo1 = None
+        # TPDO1 activity pin
+        self.tpdo1_pin = digitalio.DigitalInOut(board.D10)
+        self.tpdo1_pin.direction = digitalio.Direction.OUTPUT
+        self.tpdo1_pin.value = False
+
+        # RC activity pin
+        self.rc_pin = digitalio.DigitalInOut(board.D11)
+        self.rc_pin.direction = digitalio.Direction.OUTPUT
+        self.rc_pin.value = False
+
+        # self.amiga_tpdo1 = None
         self.debug_repeater = TickRepeater(ticks_period_ms=100)
         # send commands to amiga at 20hz
         self.cmd_repeater = TickRepeater(ticks_period_ms=20)
@@ -115,12 +132,20 @@ class FpvApp:
 
         self.max_speed = 2.5  # meters per second
         self.max_angular_rate = 3.14  # radians per second
+        self._register_message_handlers()
 
     def _register_message_handlers(self):
         self.main_loop.command_handlers[CanOpenObject.TPDO1 | DASHBOARD_NODE_ID] = self._handle_amiga_tpdo1
 
     def _handle_amiga_tpdo1(self, message):
+        # self.tpdo1_pin.value = True
         self.amiga_tpdo1 = AmigaTpdo1.from_can_data(message.data)
+        # # set pins 
+        # if (fabs(self.amiga_tpdo1.meas_speed) < 0.3):
+        #     self.zero_velocity_pin.value = True
+        # else:
+        #     self.zero_velocity_pin.value = False
+        # self.tpdo1_pin.value = False
 
     def send_command(self, channels):
         # don't send commands too frequently to Amiga
