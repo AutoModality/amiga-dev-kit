@@ -17,7 +17,6 @@ from struct import pack
 from struct import unpack
 
 
-
 def parse_packet(packet):
     # https://github.com/robotmaker/Real-time-graphical-representation-of-16-channel-S-BUS-protocol/blob/master/ProcessingSketch_SBUS_16_Channel_Simulation/ProcessingSketch_SBUS_16_Channel_Simulation.pde
 
@@ -105,25 +104,28 @@ class FpvApp:
         self.uart = busio.UART(
             None, board.RX, baudrate=100000, bits=8, parity=0, stop=2, timeout=0.002, receiver_buffer_size=256
         )
-        # stop indicator pin
-        self.zero_velocity_pin = digitalio.DigitalInOut(board.D9)
-        self.zero_velocity_pin.direction = digitalio.Direction.OUTPUT
-        self.zero_velocity_pin.value = False
 
-        # TPDO1 activity pin
-        self.tpdo1_pin = digitalio.DigitalInOut(board.D10)
-        self.tpdo1_pin.direction = digitalio.Direction.OUTPUT
-        self.tpdo1_pin.value = False
-
-        # RC activity pin
-        self.rc_pin = digitalio.DigitalInOut(board.D11)
-        self.rc_pin.direction = digitalio.Direction.OUTPUT
-        self.rc_pin.value = False
-
-        # self.amiga_tpdo1 = None
+        self.amiga_tpdo1 = None
+        self.amiga_rpdo1 = None
         self.debug_repeater = TickRepeater(ticks_period_ms=100)
         # send commands to amiga at 20hz
         self.cmd_repeater = TickRepeater(ticks_period_ms=20)
+        
+        self.tpdo_pin = digitalio.DigitalInOut(board.D9)
+        self.tpdo_pin.direction = digitalio.Direction.OUTPUT
+        self.tpdo_pin.value = True
+        
+        self.rpdo_pin = digitalio.DigitalInOut(board.D10)
+        self.rpdo_pin.direction = digitalio.Direction.OUTPUT
+        self.rpdo_pin.value = True
+        
+        self.send_zero = digitalio.DigitalInOut(board.D11)
+        self.send_zero.direction = digitalio.Direction.OUTPUT
+        self.send_zero.value = True
+        
+        self.rc0_pin = digitalio.DigitalInOut(board.D12)
+        self.rc0_pin.direction = digitalio.Direction.OUTPUT
+        self.rc0_pin.value = True
 
         # TODO calibrate these values
         self.axis2 = Axis(min=172, dz_neg=900, dz_pos=1100, max=1811)
@@ -132,22 +134,23 @@ class FpvApp:
 
         self.max_speed = 2.5  # meters per second
         self.max_angular_rate = 3.14  # radians per second
+        
         self._register_message_handlers()
 
     def _register_message_handlers(self):
         self.main_loop.command_handlers[CanOpenObject.TPDO1 | DASHBOARD_NODE_ID] = self._handle_amiga_tpdo1
+        self.main_loop.command_handlers[CanOpenObject.RPDO1 | DASHBOARD_NODE_ID] = self._handle_amiga_rpdo1
 
     def _handle_amiga_tpdo1(self, message):
-        # self.tpdo1_pin.value = True
         self.amiga_tpdo1 = AmigaTpdo1.from_can_data(message.data)
-        # # set pins 
-        # if (fabs(self.amiga_tpdo1.meas_speed) < 0.3):
-        #     self.zero_velocity_pin.value = True
-        # else:
-        #     self.zero_velocity_pin.value = False
-        # self.tpdo1_pin.value = False
+        self.tpdo_pin.value = fabs(self.amiga_tpdo1.meas_speed) < 0.05
+        
+    def _handle_amiga_rpdo1(self, message):
+    	self.amiga_rpdo1 = AmigaRpdo1.from_can_data(message.data)
+        self.rpdo_pin.value = fabs(self.amiga_rpdo1.cmd_speed) < 0.05
 
     def send_command(self, channels):
+        self.rc0_pin.value = fabs(self.max_speed * self.axis2.map(channels[2])) < 0.05
         # don't send commands too frequently to Amiga
         if not self.cmd_repeater.check():
             return
@@ -155,17 +158,21 @@ class FpvApp:
         if channels[14] < 500:
             rpdo1 = AmigaRpdo1(state_req=AmigaControlState.STATE_AUTO_READY, cmd_speed=0, cmd_ang_rate=0)
             self.can.send(canio.Message(id=CanOpenObject.RPDO1 | DASHBOARD_NODE_ID, data=rpdo1.encode()))
+            self.send_zero.value = True
         elif channels[14] >= 500 and channels[14] <= 1500:
             cmd_speed = self.max_speed * self.axis2.map(channels[2])
             cmd_ang_rate = self.max_angular_rate * -self.axis3.map(channels[1])
             rpdo1 = AmigaRpdo1(state_req=AmigaControlState.STATE_AUTO_ACTIVE, cmd_speed=cmd_speed, cmd_ang_rate=cmd_ang_rate)
             self.can.send(canio.Message(id=CanOpenObject.RPDO1 | DASHBOARD_NODE_ID, data=rpdo1.encode()))
+            self.send_zero.value = fabs(cmd_speed) < 0.05
 
         rc0 = RC0(channels=channels)
         self.can.send(canio.Message(id=self.RC0 | AMROS_ID, data=rc0.encode()))
 
         rc1 = RC1(channels=channels)
         self.can.send(canio.Message(id=self.RC1 | AMROS_ID, data=rc1.encode()))
+        
+
 
     def iter(self):
         if self.uart.in_waiting >= 25:

@@ -172,7 +172,7 @@ class AmigaTpdo1(Packet):
         meas_speed: float = 0.0,
         meas_ang_rate: float = 0.0,
     ):
-        self.format = "<Bhh"
+        self.format = "<BhhBBB"
         self.state = state
         self.meas_speed = meas_speed
         self.meas_ang_rate = meas_ang_rate
@@ -185,7 +185,7 @@ class AmigaTpdo1(Packet):
 
     def decode(self, data):
         """Decodes CAN message data and populates the values of the class."""
-        (self.state, meas_speed, meas_ang_rate) = unpack(self.format, data)
+        (self.state, meas_speed, meas_ang_rate, _, _, _) = unpack(self.format, data)
         self.meas_speed = meas_speed / 1000.0
         self.meas_ang_rate = meas_ang_rate / 1000.0
 
