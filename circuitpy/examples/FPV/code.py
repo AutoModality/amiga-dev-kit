@@ -111,21 +111,21 @@ class FpvApp:
         # send commands to amiga at 20hz
         self.cmd_repeater = TickRepeater(ticks_period_ms=20)
         
-        self.tpdo_pin = digitalio.DigitalInOut(board.D9)
-        self.tpdo_pin.direction = digitalio.Direction.OUTPUT
-        self.tpdo_pin.value = True
+        # self.tpdo_pin = digitalio.DigitalInOut(board.D9)
+        # self.tpdo_pin.direction = digitalio.Direction.OUTPUT
+        # self.tpdo_pin.value = True
         
-        self.rpdo_pin = digitalio.DigitalInOut(board.D10)
-        self.rpdo_pin.direction = digitalio.Direction.OUTPUT
-        self.rpdo_pin.value = True
+        # self.rpdo_pin = digitalio.DigitalInOut(board.D10)
+        # self.rpdo_pin.direction = digitalio.Direction.OUTPUT
+        # self.rpdo_pin.value = True
         
-        self.send_zero = digitalio.DigitalInOut(board.D11)
-        self.send_zero.direction = digitalio.Direction.OUTPUT
-        self.send_zero.value = True
+        # self.send_zero = digitalio.DigitalInOut(board.D11)
+        # self.send_zero.direction = digitalio.Direction.OUTPUT
+        # self.send_zero.value = True
         
-        self.rc0_pin = digitalio.DigitalInOut(board.D12)
-        self.rc0_pin.direction = digitalio.Direction.OUTPUT
-        self.rc0_pin.value = True
+        # self.rc0_pin = digitalio.DigitalInOut(board.D12)
+        # self.rc0_pin.direction = digitalio.Direction.OUTPUT
+        # self.rc0_pin.value = True
 
         # TODO calibrate these values
         self.axis2 = Axis(min=172, dz_neg=900, dz_pos=1100, max=1811)
@@ -143,14 +143,14 @@ class FpvApp:
 
     def _handle_amiga_tpdo1(self, message):
         self.amiga_tpdo1 = AmigaTpdo1.from_can_data(message.data)
-        self.tpdo_pin.value = fabs(self.amiga_tpdo1.meas_speed) < 0.05
+        # self.tpdo_pin.value = fabs(self.amiga_tpdo1.meas_speed) < 0.05
         
     def _handle_amiga_rpdo1(self, message):
     	self.amiga_rpdo1 = AmigaRpdo1.from_can_data(message.data)
-        self.rpdo_pin.value = fabs(self.amiga_rpdo1.cmd_speed) < 0.05
+        # self.rpdo_pin.value = fabs(self.amiga_rpdo1.cmd_speed) < 0.05
 
     def send_command(self, channels):
-        self.rc0_pin.value = fabs(self.max_speed * self.axis2.map(channels[2])) < 0.05
+        # self.rc0_pin.value = fabs(self.max_speed * self.axis2.map(channels[2])) < 0.05
         # don't send commands too frequently to Amiga
         if not self.cmd_repeater.check():
             return
@@ -158,13 +158,13 @@ class FpvApp:
         if channels[14] < 500:
             rpdo1 = AmigaRpdo1(state_req=AmigaControlState.STATE_AUTO_READY, cmd_speed=0, cmd_ang_rate=0)
             self.can.send(canio.Message(id=CanOpenObject.RPDO1 | DASHBOARD_NODE_ID, data=rpdo1.encode()))
-            self.send_zero.value = True
+            # self.send_zero.value = True
         elif channels[14] >= 500 and channels[14] <= 1500:
             cmd_speed = self.max_speed * self.axis2.map(channels[2])
             cmd_ang_rate = self.max_angular_rate * -self.axis3.map(channels[1])
             rpdo1 = AmigaRpdo1(state_req=AmigaControlState.STATE_AUTO_ACTIVE, cmd_speed=cmd_speed, cmd_ang_rate=cmd_ang_rate)
             self.can.send(canio.Message(id=CanOpenObject.RPDO1 | DASHBOARD_NODE_ID, data=rpdo1.encode()))
-            self.send_zero.value = fabs(cmd_speed) < 0.05
+            # self.send_zero.value = fabs(cmd_speed) < 0.05
 
         rc0 = RC0(channels=channels)
         self.can.send(canio.Message(id=self.RC0 | AMROS_ID, data=rc0.encode()))
